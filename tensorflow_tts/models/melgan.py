@@ -373,11 +373,32 @@ class TFMelGANDiscriminator(tf.keras.layers.Layer):
 
         # add downsample layers
         in_chs = filters
-        with tf.keras.utils.CustomObjectScope({"GroupConv1D": GroupConv1D}):
+        if int(tf.__version__.split(".")[1]) < 3:  # "check if tf-version < 2.3.0"
+            with tf.keras.utils.CustomObjectScope({"GroupConv1D": GroupConv1D}):
+                for downsample_scale in downsample_scales:
+                    out_chs = min(in_chs * downsample_scale, max_downsample_filters)
+                    discriminator += [
+                        GroupConv1D(
+                            filters=out_chs,
+                            kernel_size=downsample_scale * 10 + 1,
+                            strides=downsample_scale,
+                            padding="same",
+                            use_bias=use_bias,
+                            groups=in_chs // 4,
+                            kernel_initializer=get_initializer(initializer_seed),
+                        )
+                    ]
+                    discriminator += [
+                        getattr(tf.keras.layers, nonlinear_activation)(
+                            **nonlinear_activation_params
+                        )
+                    ]
+                    in_chs = out_chs
+        else:
             for downsample_scale in downsample_scales:
                 out_chs = min(in_chs * downsample_scale, max_downsample_filters)
                 discriminator += [
-                    GroupConv1D(
+                    tf.keras.layers.Conv1D(
                         filters=out_chs,
                         kernel_size=downsample_scale * 10 + 1,
                         strides=downsample_scale,
@@ -392,7 +413,7 @@ class TFMelGANDiscriminator(tf.keras.layers.Layer):
                         **nonlinear_activation_params
                     )
                 ]
-                in_chs = out_chs
+                in_chs = out_chs   
 
         # add final layers
         out_chs = min(in_chs * 2, max_downsample_filters)
