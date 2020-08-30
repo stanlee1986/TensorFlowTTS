@@ -14,9 +14,21 @@
 # limitations under the License.
 """Strategy util functions"""
 import tensorflow as tf
+import os
 
 
 def return_strategy():
+    try:
+        resolver = tf.distribute.cluster_resolver.TPUClusterResolver(tpu='grpc://' + os.environ['COLAB_TPU_ADDR'])
+        tf.config.experimental_connect_to_cluster(resolver)
+        # This is the TPU initialization code that has to be at the beginning.
+        tf.tpu.experimental.initialize_tpu_system(resolver)
+    except:
+        print("No TPU")
+    physical_devices = tf.config.list_logical_devices('TPU')
+    if len(physical_devices) > 0:
+        return tf.distribute.TPUStrategy(resolver)
+    
     physical_devices = tf.config.list_physical_devices("GPU")
     if len(physical_devices) == 0:
         return tf.distribute.OneDeviceStrategy(device="/cpu:0")
